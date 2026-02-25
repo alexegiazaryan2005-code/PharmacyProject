@@ -5,41 +5,55 @@
 {% block content %}
     <h1>Добро пожаловать в систему управления аптекой!</h1>
     
-    <div class="stats-container">
-        <div class="stat-card">
-            <div class="stat-number">{{ products_count }}</div>
-            <div class="stat-label">Всего товаров</div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-number">{{ categories_count }}</div>
-            <div class="stat-label">Категорий</div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-number">{{ low_stock }}</div>
-            <div class="stat-label">Товаров мало на складе</div>
-        </div>
+   <div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-number">{{ products_count }}</div>
+        <div class="stat-label">Всего наименований</div>
     </div>
-    
-    <div class="card">
-        <h2>Быстрые действия</h2>
-        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-            <a href="/add_product" class="btn">➕ Добавить товар</a>
-            <a href="/add_category" class="btn">🏷️ Добавить категорию</a>
-            <a href="/products" class="btn">📦 Просмотр товаров</a>
+
+    <div class="stat-card">
+        <div class="stat-number">{{ categories_count }}</div>
+        <div class="stat-label">Категорий</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-number">{{ pharmacies_count }}</div>
+        <div class="stat-label">Аптек в сети</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-number">{{ total_stock_quantity }}</div>
+        <div class="stat-label">Единиц товара</div>
+    </div>
+</div>
+
+<!-- Блок аптек с критическим остатком -->
+{% if low_stock_pharmacies %}
+<div class="card" style="border-left: 4px solid #dc3545;">
+    <h2 style="color: #dc3545;">⚠️ Требуется пополнение</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        {% for item in low_stock_pharmacies %}
+        <div style="padding: 1rem; background-color: #fff3f3; border-radius: 8px;">
+            <h3 style="margin-bottom: 0.5rem;">{{ item.pharmacy.name }}</h3>
+            <p style="font-size: 1.2rem; font-weight: bold; color: #dc3545;">
+                {{ item.count }} товаров меньше минимального остатка
+            </p>
+            <small>Мин. остаток:
+                {% set stock = item.pharmacy.stocks.first() %}
+                {% if stock and stock.min_quantity is not none %}
+                    {{ stock.min_quantity }} шт.
+                {% else %}
+                    5 шт. (по умолчанию)
+                {% endif %}
+            </small>
+            <br>
+            <a href="/pharmacy/{{ item.pharmacy.id }}/low-stock" class="btn" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                Просмотреть
+            </a>
         </div>
+        {% endfor %}
     </div>
-    
-    <div class="card">
-        <h2>О системе</h2>
-        <p>Система для автоматизированного управления ассортиментом и классификацией товаров аптечной сети.</p>
-        <p>Возможности:</p>
-        <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-            <li>Управление товарами и категориями</li>
-            <li>Отслеживание остатков на складе</li>
-            <li>Поиск товаров по названию</li>
-            <li>API для интеграции с другими системами</li>
-        </ul>
-    </div>
-{% endblock %}
+</div>
+{% endif %}
+
+{% endblock %}  <!-- ВАЖНО: добавлен закрывающий тег -->

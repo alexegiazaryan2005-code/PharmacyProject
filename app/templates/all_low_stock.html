@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Все товары с низким запасом</h2>
+
+    {% if low_stock_items %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Аптека</th>
+                <th>Товар</th>
+                <th>Текущий остаток</th>
+                <th>Статус</th>
+                <th>Необходимо докупить</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in low_stock_items %}
+            <tr>
+                <td>{{ item.pharmacy }}</td>
+                <td>{{ item.product }}</td>
+                <td>{{ item.stock }}</td>
+                <td>
+                    {% if item.quantity <= 0 %}
+                        <span class="badge badge-danger">Нет в наличии</span>
+                    {% elif item.quantity <= 5 %}
+                        <span class="badge badge-warning">Критически мало</span>
+                    {% else %}
+                        <span class="badge badge-info">Ниже нормы</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.shortage }} шт.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-success">
+        Товаров с низким запасом не найдено.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

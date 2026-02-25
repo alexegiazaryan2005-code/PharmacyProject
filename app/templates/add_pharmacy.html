@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Добавить аптеку{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h1>➕ Добавить новую аптеку</h1>
+        
+        <form method="POST" action="/add_pharmacy" style="max-width: 600px; margin-top: 1.5rem;">
+            <div class="form-group">
+                <label for="name">Название аптеки <span style="color: red;">*</span>:</label>
+                <input type="text" id="name" name="name" required placeholder="Например: Аптека №1">
+                <small style="color: #666;">Обязательное поле</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="address">Адрес:</label>
+                <input type="text" id="address" name="address" placeholder="г. Москва, ул. Ленина, д. 1">
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Телефон:</label>
+                <input type="tel" id="phone" name="phone" placeholder="+7 (495) 123-45-67">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="pharmacy@example.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="working_hours">Режим работы:</label>
+                <input type="text" id="working_hours" name="working_hours" placeholder="09:00-21:00, без выходных">
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-success">💾 Сохранить аптеку</button>
+                <a href="/pharmacies" class="btn">Отмена</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

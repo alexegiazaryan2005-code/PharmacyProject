@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Аптеки сети{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h1>🏪 Аптеки сети</h1>
+    <a href="/add_pharmacy" class="btn btn-success">➕ Добавить аптеку</a>
+</div>
+
+<div class="card">
+    <table>
+      <!-- Найдите секцию с таблицей и замените заголовки -->
+<thead>
+    <tr>
+        <th>ID</th>
+        <th>Название</th>
+        <th>Адрес</th>
+        <th>Телефон</th>
+        <th>Режим работы</th>
+        <th>Статус</th>
+        <th>Товаров</th>
+        <th>Низкий остаток</th>  <!-- НОВЫЙ СТОЛБЕЦ -->
+        <th>Действия</th>
+    </tr>
+</thead>
+
+<!-- В теле таблицы найдите строку с аптекой и добавьте новый столбец -->
+<tbody>
+    {% for pharmacy in pharmacies %}
+    <tr>
+        <td>{{ pharmacy.id }}</td>
+        <td><strong>{{ pharmacy.name }}</strong></td>
+        <td>{{ pharmacy.address or '—' }}</td>
+        <td>{{ pharmacy.phone or '—' }}</td>
+        <td>{{ pharmacy.working_hours or '—' }}</td>
+        <td>
+            {% if pharmacy.is_active %}
+                <span style="color: green; font-weight: bold;">✓ Активна</span>
+            {% else %}
+                <span style="color: red;">✗ Неактивна</span>
+            {% endif %}
+        </td>
+        <td>{{ pharmacy.stocks.count() }}</td>
+    <td>  <!-- НОВЫЙ СТОЛБЕЦ -->
+    {% set low_stock_count = namespace(count=0) %}
+    {% for stock in pharmacy.stocks %}
+        {% if stock.quantity < stock.min_quantity %}
+            {% set low_stock_count.count = low_stock_count.count + 1 %}
+        {% endif %}
+    {% endfor %}
+
+    {% if low_stock_count.count > 0 %}
+        <a href="/pharmacy/{{ pharmacy.id }}/low-stock"
+           style="color: red; font-weight: bold; text-decoration: none;"
+           title="Товары с низким остатком">
+            ⚠️ {{ low_stock_count.count }}
+        </a>
+    {% else %}
+        <span style="color: green;">✅ 0</span>
+    {% endif %}
+</td>
+        <td>  <!-- НОВЫЙ СТОЛБЕЦ -->
+    {% if low_stock_counts is defined %}
+        {% set low_stock_count = low_stock_counts.get(pharmacy.id, 0) %}
+    {% else %}
+        {# Альтернативный подсчет, если переменная не передана #}
+        {% set low_stock_count = namespace(count=0) %}
+        {% for stock in pharmacy.stocks %}
+            {% if stock.quantity < stock.min_quantity %}
+                {% set low_stock_count.count = low_stock_count.count + 1 %}
+            {% endif %}
+        {% endfor %}
+        {% set low_stock_count = low_stock_count.count %}
+    {% endif %}
+
+    {% if low_stock_count > 0 %}
+        <a href="/pharmacy/{{ pharmacy.id }}/low-stock"
+           style="color: red; font-weight: bold; text-decoration: none;"
+           title="Товары с низким остатком">
+            ⚠️ {{ low_stock_count }}
+        </a>
+    {% else %}
+        <span style="color: green;">✅ 0</span>
+    {% endif %}
+</td>
+        <td>
+            <a href="{{ url_for('main.edit_pharmacy', pharmacy_id=pharmacy.id) }}"
+               class="btn"
+               style="padding: 0.25rem 0.5rem;"
+               title="Редактировать аптеку">
+                ✏️
+            </a>
+            <button onclick="togglePharmacyStatus({{ pharmacy.id }})"
+                    class="btn"
+                    style="padding: 0.25rem 0.5rem; background-color: {% if pharmacy.is_active %}#ffc107{% else %}#28a745{% endif %};"
+                    title="{% if pharmacy.is_active %}Деактивировать{% else %}Активировать{% endif %}">
+                {% if pharmacy.is_active %}🔴{% else %}🟢{% endif %}
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+    </table>
+    
+    {% if not pharmacies %}
+        <p style="text-align: center; padding: 2rem; color: #666;">
+            Аптеки не добавлены. <a href="/add_pharmacy">Добавить первую аптеку</a>
+        </p>
+    {% endif %}
+</div>
+
+<script>
+function togglePharmacyStatus(pharmacyId) {
+    fetch(`/api/pharmacy/${pharmacyId}/toggle`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+}
+</script>
+{% endblock %}

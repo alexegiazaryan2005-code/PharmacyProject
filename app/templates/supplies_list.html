@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Поступления товаров{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h1>📋 Журнал поступлений</h1>
+    <a href="/supply" class="btn btn-success">➕ Новое поступление</a>
+</div>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Номер</th>
+                <th>Дата</th>
+                <th>Товар</th>
+                <th>Аптека</th>
+                <th>Кол-во</th>
+                <th>Цена закупки</th>
+                <th>Цена продажи</th>
+                <th>Наценка</th>
+                <th>Скидка</th>
+                <th>Сумма</th>
+                <th>Накладная</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for supply in supplies %}
+            <tr>
+                <td><strong>{{ supply.supply_number }}</strong></td>
+                <td>{{ supply.supply_date.strftime('%d.%m.%Y %H:%M') }}</td>
+                <td>{{ supply.product.name }}</td>
+                <td>{{ supply.pharmacy.name }}</td>
+                <td>{{ supply.quantity }}</td>
+                <td>{{ "%.2f"|format(supply.purchase_price) }} руб.</td>
+                <td>{{ "%.2f"|format(supply.selling_price) }} руб.</td>
+                <td>{{ supply.markup_percent }}%</td>
+                <td>{{ supply.discount_percent }}%</td>
+                <td><strong>{{ "%.2f"|format(supply.total_amount) }} руб.</strong></td>
+                <td>
+                    {% if supply.invoice_file %}
+                    <a href="/{{ supply.invoice_file }}" target="_blank">📎</a>
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if not supplies %}
+        <p style="text-align: center; padding: 2rem; color: #666;">Поступления не найдены</p>
+    {% endif %}
+</div>
+{% endblock %}

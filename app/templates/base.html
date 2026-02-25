@@ -168,16 +168,67 @@
     <nav class="navbar">
         <div class="navbar-container">
             <a href="/" class="navbar-brand">🏥 Аптека Управление</a>
-            <div class="nav-links">
-                <a href="/" class="nav-link">Главная</a>
-                <a href="/products" class="nav-link">Товары</a>
-                <a href="/categories" class="nav-link">Категории</a>
-                <a href="/add_product" class="nav-link">Добавить товар</a>
-                <a href="/add_category" class="nav-link">Добавить категорию</a>
-            </div>
+           <div class="nav-links">
+    <a href="/" class="nav-link">Главная</a>
+    <a href="/products" class="nav-link">Товары</a>
+    <a href="/categories" class="nav-link">Категории</a>
+    <a href="/pharmacies" class="nav-link">🏪 Аптеки</a>
+
+    <!-- Новые пункты меню -->
+    <div class="nav-dropdown" style="position: relative; display: inline-block;">
+        <a href="#" class="nav-link" onclick="toggleDropdown()">📦 Документы ▼</a>
+        <div id="dropdownMenu" style="display: none; position: absolute; background-color: white; min-width: 200px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 1; border-radius: 4px;">
+            <a href="/supply" style="color: #333; padding: 12px 16px; text-decoration: none; display: block; border-bottom: 1px solid #ddd;">
+                📥 Поступление товаров
+            </a>
+            <a href="/sale" style="color: #333; padding: 12px 16px; text-decoration: none; display: block; border-bottom: 1px solid #ddd;">
+                🧾 Реализация товаров
+            </a>
+            <a href="/transfer" style="color: #333; padding: 12px 16px; text-decoration: none; display: block;">
+                🔄 Перемещение
+            </a>
+        </div>
+    </div>
+
+    <a href="/supplies" class="nav-link">📋 Поступления</a>
+    <a href="/sales" class="nav-link">📊 Продажи</a>
+    <a href="/transfers" class="nav-link">🚚 Перемещения</a>
+
+    <a href="/add_product" class="nav-link">Добавить товар</a>
+    <a href="/add_category" class="nav-link">Добавить категорию</a>
+</div>
+
+<script>
+function toggleDropdown() {
+    const dropdown = document.getElementById('dropdownMenu');
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+// Закрыть dropdown при клике вне его
+window.onclick = function(event) {
+    if (!event.target.matches('.nav-link')) {
+        const dropdown = document.getElementById('dropdownMenu');
+        if (dropdown && dropdown.style.display === 'block') {
+            dropdown.style.display = 'none';
+        }
+    }
+}
+</script>
         </div>
     </nav>
-
+<!-- В секции навигации добавьте новый пункт меню -->
+<nav>
+    <ul style="display: flex; list-style: none; gap: 1rem; padding: 0;">
+        <li><a href="/">Главная</a></li>
+        <li><a href="/products">Товары</a></li>
+        <li><a href="/categories">Категории</a></li>
+        <li><a href="/pharmacies">Аптеки</a></li>
+        <li><a href="/supply">Поступление</a></li>
+        <li><a href="/sale">Продажа</a></li>
+        <li><a href="/transfer">Перемещение</a></li>
+        <li><a href="/all-low-stock" style="color: red;">⚠️ Низкий остаток</a></li>  <!-- НОВЫЙ ПУНКТ -->
+    </ul>
+</nav>
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

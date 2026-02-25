@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Реализация товаров{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🧾 Новая продажа</h1>
+    
+    <form method="POST" action="{{ url_for('main.sales_create') }}" style="max-width: 800px; margin-top: 1.5rem;">
+        <div class="form-group">
+            <label for="sale_number">Номер чека <span style="color: red;">*</span>:</label>
+            <input type="text" id="sale_number" name="sale_number" required 
+                   value="SALE-{{ range(1000, 9999) | random }}" readonly
+                   style="background-color: #f0f0f0;">
+        </div>
+        
+        <div class="form-group">
+            <label for="pharmacy_id">Аптека <span style="color: red;">*</span>:</label>
+            <select id="pharmacy_id" name="pharmacy_id" required onchange="loadProducts()">
+                <option value="">-- Выберите аптеку --</option>
+                {% for pharmacy in pharmacies %}
+                <option value="{{ pharmacy.id }}">{{ pharmacy.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="product_id">Товар <span style="color: red;">*</span>:</label>
+            <select id="product_id" name="product_id" required onchange="checkStock()">
+                <option value="">-- Сначала выберите аптеку --</option>
+            </select>
+            <div id="stock_info" style="margin-top: 5px; font-size: 0.9rem;"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="quantity">Количество <span style="color: red;">*</span>:</label>
+            <input type="number" id="quantity" name="quantity" min="1" required onchange="calculateSaleTotal()">
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="use_fifo" name="use_fifo" checked onchange="toggleFifoInfo()">
+                Использовать FIFO (первым поступил - первым продан)
+            </label>
+            <div id="fifo_info" style="margin-top: 5px; padding: 10px; background-color: #e8f4fd; border-radius: 4px;">
+                <small>Товары будут списываться по принципу FIFO: сначала более старые поступления</small>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="customer_discount">Скидка клиента (%):</label>
+                <input type="number" id="customer_discount" name="customer_discount" min="0" max="100" step="0.1" value="0" onchange="calculateSaleTotal()">
+            </div>
+            
+            <div class="form-group">
+                <label for="promotion_discount">Скидка по акции (%):</label>
+                <input type="number" id="promotion_discount" name="promotion_discount" min="0" max="100" step="0.1" value="0" onchange="calculateSaleTotal()">
+            </div>
+        </div>
+        
+        <div class="card" style="background-color: #f8f9fa; margin: 1rem 0;">
+            <h3>Информация о товаре:</h3>
+            <div id="product_info" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div><strong>Цена за единицу:</strong> <span id="price_per_unit">0.00</span> руб.</div>
+                <div><strong>Доступно на складе:</strong> <span id="available_quantity">0</span> шт.</div>
+                <div><strong>Сумма скидок:</strong> <span id="total_discount">0.00</span> руб.</div>
+            </div>
+        </div>
+        
+        <div class="card" style="background-color: #d4edda; margin: 1rem 0;">
+            <h3 style="color: #155724;">ИТОГО К ОПЛАТЕ:</h3>
+            <div style="font-size: 2rem; font-weight: bold; color: #28a745; text-align: center;">
+                <span id="final_total">0.00</span> руб.
+                <input type="hidden" id="total_amount" name="total_amount">
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-success">💾 Оформить продажу</button>
+            <a href="/sales" class="btn">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function loadProducts() {
+    const pharmacyId = document.getElementById('pharmacy_id').value;
+    const productSelect = document.getElementById('product_id');
+    
+    if (!pharmacyId) {
+        productSelect.innerHTML = '<option value="">-- Сначала выберите аптеку --</option>';
+        return;
+    }
+    
+    fetch(`/api/pharmacy/${pharmacyId}/products`)
+        .then(response => response.json())
+        .then(data => {
+            productSelect.innerHTML = '<option value="">-- Выберите товар --</option>';
+            data.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.name} (в наличии: ${product.stock_quantity} шт.)`;
+                option.dataset.price = product.price;
+                option.dataset.stock = product.stock_quantity;
+                productSelect.appendChild(option);
+            });
+        });
+}
+
+function checkStock() {
+    const select = document.getElementById('product_id');
+    const selected = select.options[select.selectedIndex];
+    const stockInfo = document.getElementById('stock_info');
+    const quantityInput = document.getElementById('quantity');
+    
+    if (selected && selected.value) {
+        const stock = selected.dataset.stock;
+        const price = selected.dataset.price;
+        
+        stockInfo.innerHTML = `<span style="color: ${stock > 0 ? 'green' : 'red'}">
+            Доступно на складе: ${stock} шт. (Цена: ${price} руб.)
+        </span>`;
+        
+        document.getElementById('price_per_unit').textContent = price;
+        document.getElementById('available_quantity').textContent = stock;
+        
+        if (quantityInput.value) {
+            calculateSaleTotal();
+        }
+    }
+}
+
+function calculateSaleTotal() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const pricePerUnit = parseFloat(document.getElementById('price_per_unit').textContent) || 0;
+    const customerDiscount = parseFloat(document.getElementById('customer_discount').value) || 0;
+    const promotionDiscount = parseFloat(document.getElementById('promotion_discount').value) || 0;
+    
+    const subtotal = quantity * pricePerUnit;
+    const totalDiscount = subtotal * (customerDiscount + promotionDiscount) / 100;
+    const finalTotal = subtotal - totalDiscount;
+    
+    document.getElementById('total_discount').textContent = totalDiscount.toFixed(2);
+    document.getElementById('final_total').textContent = finalTotal.toFixed(2);
+    document.getElementById('total_amount').value = finalTotal.toFixed(2);
+}
+
+function toggleFifoInfo() {
+    const useFifo = document.getElementById('use_fifo').checked;
+    const fifoInfo = document.getElementById('fifo_info');
+    fifoInfo.style.backgroundColor = useFifo ? '#e8f4fd' : '#fff3cd';
+}
+</script>
+{% endblock %}

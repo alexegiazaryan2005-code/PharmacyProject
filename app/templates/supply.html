@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Поступление товаров{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>📦 Новое поступление товаров</h1>
+    
+    <form method="POST" action="{{ url_for('main.supply') }}" enctype="multipart/form-data" style="max-width: 800px; margin-top: 1.5rem;">
+        <div class="form-group">
+            <label for="supply_number">Номер накладной <span style="color: red;">*</span>:</label>
+            <input type="text" id="supply_number" name="supply_number" required 
+                   value="SUP-{{ range(1000, 9999) | random }}" readonly 
+                   style="background-color: #f0f0f0;">
+            <small>Автоматически сгенерированный номер</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="product_id">Товар <span style="color: red;">*</span>:</label>
+            <select id="product_id" name="product_id" required onchange="updateProductInfo()">
+                <option value="">-- Выберите товар --</option>
+                {% for product in products %}
+                <option value="{{ product.id }}" data-price="{{ product.price }}">
+                    {{ product.name }} ({{ product.barcode or 'Нет штрих-кода' }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="pharmacy_id">Аптека получатель <span style="color: red;">*</span>:</label>
+            <select id="pharmacy_id" name="pharmacy_id" required>
+                <option value="">-- Выберите аптеку --</option>
+                {% for pharmacy in pharmacies %}
+                <option value="{{ pharmacy.id }}">{{ pharmacy.name }} - {{ pharmacy.address }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="quantity">Количество <span style="color: red;">*</span>:</label>
+                <input type="number" id="quantity" name="quantity" min="1" required onchange="calculateTotal()">
+            </div>
+            
+            <div class="form-group">
+                <label for="purchase_price">Цена закупки (руб.) <span style="color: red;">*</span>:</label>
+                <input type="number" id="purchase_price" name="purchase_price" min="0" step="0.01" required onchange="calculateTotal()">
+            </div>
+            
+            <div class="form-group">
+                <label for="markup_percent">Наценка (%) <span style="color: red;">*</span>:</label>
+                <input type="number" id="markup_percent" name="markup_percent" min="0" step="0.1" value="25" required onchange="calculateTotal()">
+            </div>
+            
+            <div class="form-group">
+                <label for="supplier_discount">Скидка от поставщика (%):</label>
+                <input type="number" id="supplier_discount" name="supplier_discount" min="0" max="100" step="0.1" value="0" onchange="calculateTotal()">
+            </div>
+        </div>
+        
+        <div class="card" style="background-color: #f8f9fa; margin: 1rem 0;">
+            <h3>Расчёт итогов:</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div>
+                    <strong>Цена продажи:</strong>
+                    <span id="selling_price_display">0.00 руб.</span>
+                    <input type="hidden" id="selling_price" name="selling_price">
+                </div>
+                <div>
+                    <strong>Сумма скидки:</strong>
+                    <span id="discount_amount_display">0.00 руб.</span>
+                </div>
+                <div>
+                    <strong style="font-size: 1.2rem;">ИТОГО:</strong>
+                    <span id="total_amount_display" style="font-size: 1.2rem; color: #28a745;">0.00 руб.</span>
+                    <input type="hidden" id="total_amount" name="total_amount">
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="invoice_file">Файл накладной:</label>
+            <input type="file" id="invoice_file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png">
+        </div>
+        
+        <div class="form-group">
+            <label for="notes">Примечания:</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="Дополнительная информация..."></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <button type="submit" class="btn btn-success">💾 Сохранить поступление</button>
+            <a href="/supplies" class="btn">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function updateProductInfo() {
+    const select = document.getElementById('product_id');
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value) {
+        const currentPrice = selected.dataset.price;
+        document.getElementById('current_price_display')?.remove();
+    }
+    calculateTotal();
+}
+
+function calculateTotal() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const purchasePrice = parseFloat(document.getElementById('purchase_price').value) || 0;
+    const markupPercent = parseFloat(document.getElementById('markup_percent').value) || 0;
+    const supplierDiscount = parseFloat(document.getElementById('supplier_discount').value) || 0;
+    
+    // Расчёт цены продажи с наценкой
+    const sellingPrice = purchasePrice * (1 + markupPercent / 100);
+    
+    // Расчёт суммы скидки от поставщика
+    const subtotal = purchasePrice * quantity;
+    const discountAmount = subtotal * (supplierDiscount / 100);
+    const totalAmount = subtotal - discountAmount;
+    
+    // Обновление отображения
+    document.getElementById('selling_price_display').textContent = sellingPrice.toFixed(2) + ' руб.';
+    document.getElementById('selling_price').value = sellingPrice.toFixed(2);
+    
+    document.getElementById('discount_amount_display').textContent = discountAmount.toFixed(2) + ' руб.';
+    
+    document.getElementById('total_amount_display').textContent = totalAmount.toFixed(2) + ' руб.';
+    document.getElementById('total_amount').value = totalAmount.toFixed(2);
+}
+</script>
+{% endblock %}

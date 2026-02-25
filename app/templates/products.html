@@ -7,51 +7,104 @@
         <h1>Товары в аптеке</h1>
         <a href="/add_product" class="btn btn-success">➕ Добавить товар</a>
     </div>
-    
+
     <div class="card">
-        <form method="GET" action="/products" style="margin-bottom: 1rem;">
-            <input type="text" 
-                   name="search" 
-                   placeholder="Поиск товара по названию..." 
-                   value="{{ search }}"
-                   style="width: 300px; padding: 0.5rem;">
-            <button type="submit" class="btn">🔍 Найти</button>
-            {% if search %}
-                <a href="/products" class="btn">Очистить</a>
-            {% endif %}
+        <form method="get" action="{{ url_for('main.products') }}" class="mb-3">
+            <div>
+                <label>Название:</label>
+                <input type="text" name="search" value="{{ search or '' }}" placeholder="Например: Нурофен">
+            </div>
+
+            <div>
+                <label>Категории:</label>
+                <select name="category_ids" multiple style="height: 100px; width: 100%;">
+                    {% for c in categories %}
+                    <option value="{{ c.id }}"
+                            {% if c.id in category_ids %}selected{% endif %}>
+                        {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small>Удерживайте Ctrl/Cmd для выбора нескольких категорий</small>
+            </div>
+
+            <div>
+                <label>Производитель:</label>
+                <select name="manufacturer_id">
+                    <option value="">Все производители</option>
+                    {% for m in manufacturers %}
+                    <option value="{{ m.id }}"
+                            {% if manufacturer_id == m.id %}selected{% endif %}>
+                        {{ m.name }}{% if m.country %} ({{ m.country }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Тип рецептурности:</label>
+                <select name="recept_id">
+                    <option value="">Все типы</option>
+                    {% for r in recepts %}
+                    <option value="{{ r.id }}" {% if recept_id == r.id %}selected{% endif %}>{{ r.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Штрих-код:</label>
+                <input type="text" name="barcode" value="{{ barcode or '' }}" placeholder="Например: 123456789012">
+            </div>
+
+            <button type="submit">Поиск / Фильтр</button>
+            <a href="{{ url_for('main.products') }}">Сбросить</a>
         </form>
-        
+
         <table>
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>Название</th>
                     <th>Цена</th>
-                    <th>Количество</th>
+                    <th>Рецепт</th>
                     <th>Категория</th>
                     <th>Производитель</th>
+                    <th>Штрих-код</th>
                 </tr>
             </thead>
             <tbody>
-                {% for product in products %}
-                <tr>
-                    <td>{{ product.id }}</td>
-                    <td>{{ product.name }}</td>
-                    <td>{{ product.price }} руб.</td>
-                    <td>
-                        {% if product.quantity < 10 %}
-                            <span style="color: red; font-weight: bold;">{{ product.quantity }}</span>
-                        {% else %}
-                            {{ product.quantity }}
-                        {% endif %}
-                    </td>
-                    <td>{{ product.category.name }}</td>
-                    <td>{{ product.manufacturer }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
+{% for product in products %}
+    <tr>
+        <td>{{ product.id }}</td>
+        <td>{{ product.name }}</td>
+        <td>{{ product.price }} руб.</td>
+        <td>{{ product.recept.name if product.recept else 'Не указано' }}</td>
+        <td>
+            {% for category in product.categories %}
+                <span class="category-badge">{{ category.name }}</span>
+            {% else %}
+                <span style="color: #999;">Без категории</span>
+            {% endfor %}
+        </td>
+        <td>{{ product.manufacturer.name if product.manufacturer else 'Не указан' }}</td>
+<!-- Изменено: product.manufacturer вместо product.product_manufacturer -->
+        <td>{{ product.barcode or '—' }}</td>
+    </tr>
+{% endfor %}
+</tbody>
         </table>
-        
+
+        <style>
+        .category-badge {
+            display: inline-block;
+            background-color: #e0e0e0;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 1px;
+        }
+        </style>
+
         {% if not products %}
             <p style="text-align: center; padding: 2rem; color: #666;">Товары не найдены</p>
         {% endif %}

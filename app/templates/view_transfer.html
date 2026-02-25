@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Детали перемещения{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🔍 Детали перемещения {{ transfer.transfer_number }}</h1>
+    
+    <div style="margin: 2rem 0;">
+        <table class="table">
+            <tr>
+                <th>Номер перемещения:</th>
+                <td>{{ transfer.transfer_number }}</td>
+            </tr>
+            <tr>
+                <th>Товар:</th>
+                <td>{{ transfer.product.name }}</td>
+            </tr>
+            <tr>
+                <th>Аптека-источник:</th>
+                <td>{{ transfer.from_pharmacy.name }}</td>
+            </tr>
+            <tr>
+                <th>Аптека-получатель:</th>
+                <td>{{ transfer.to_pharmacy.name }}</td>
+            </tr>
+            <tr>
+                <th>Количество:</th>
+                <td>{{ transfer.quantity }} шт.</td>
+            </tr>
+            <tr>
+                <th>Дата перемещения:</th>
+                <td>{{ transfer.transfer_date.strftime('%d.%m.%Y %H:%M') }}</td>
+            </tr>
+            <tr>
+                <th>Статус:</th>
+                <td>
+                    {% if transfer.status == 'completed' %}
+                        <span class="status-badge status-completed">✅ Выполнено</span>
+                    {% elif transfer.status == 'pending' %}
+                        <span class="status-badge status-pending">⏳ Ожидает</span>
+                    {% elif transfer.status == 'cancelled' %}
+                        <span class="status-badge status-cancelled">❌ Отменено</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if transfer.notes %}
+            <tr>
+                <th>Примечания:</th>
+                <td>{{ transfer.notes }}</td>
+            </tr>
+            {% endif %}
+            {% if transfer.completed_date %}
+            <tr>
+                <th>Дата выполнения:</th>
+                <td>{{ transfer.completed_date.strftime('%d.%m.%Y %H:%M') }}</td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+    
+    <div style="display: flex; gap: 1rem;">
+        <a href="{{ url_for('main.edit_transfer', transfer_id=transfer.id) }}" class="btn">✏️ Редактировать</a>
+        <a href="{{ url_for('main.transfers_list') }}" class="btn">← К списку</a>
+        <form method="POST" action="{{ url_for('main.delete_transfer', transfer_id=transfer.id) }}" style="display: inline;">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить перемещение?')">🗑️ Удалить</button>
+        </form>
+    </div>
+</div>
+
+<style>
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.status-completed {
+    background-color: #d4edda;
+    color: #155724;
+}
+.status-pending {
+    background-color: #fff3cd;
+    color: #856404;
+}
+.status-cancelled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+</style>
+{% endblock %}

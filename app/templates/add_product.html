@@ -3,49 +3,229 @@
 {% block title %}Добавить товар{% endblock %}
 
 {% block content %}
-    <div class="card">
-        <h1>Добавить новый товар</h1>
-        
-        <form method="POST" action="/add_product" style="max-width: 600px; margin-top: 1.5rem;">
+<div class="card">
+    <h1>➕ Добавить новый товар</h1>
+
+    <form method="POST" action="/add_product" style="max-width: 800px; margin-top: 1.5rem;">
+        <!-- Основная информация о товаре -->
+        <div class="form-group">
+            <label for="name">Название товара <span style="color: red;">*</span>:</label>
+            <input type="text" id="name" name="name" required placeholder="Например: Нурофен таблетки 200мг №20">
+        </div>
+
+        <div class="form-group">
+            <label for="price">Цена <span style="color: red;">*</span>:</label>
+            <input type="number" id="price" name="price" step="0.01" required placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+            <label for="barcode">Штрих-код:</label>
+            <input type="text" id="barcode" name="barcode" placeholder="4600000000000">
+        </div>
+
+        <!-- Категории с поиском -->
+        <div class="form-group">
+            <label for="categorySearch">Поиск категорий:</label>
+            <input type="text" id="categorySearch" onkeyup="filterCategories()" placeholder="Введите название категории...">
+        </div>
+
+        <div class="form-group">
+            <label for="category_ids">Категории (можно выбрать несколько):</label>
+            <select id="category_ids" name="category_ids" multiple style="height: 150px;">
+                {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+            <small>Удерживайте Ctrl/Cmd для выбора нескольких категорий</small>
+        </div>
+
+        <!-- Производитель -->
+       <div class="form-group">
+    <label for="manufacturer">Производитель:</label>
+    <input type="text" id="manufacturer_name" list="manufacturerList" placeholder="Начните вводить название">
+    <datalist id="manufacturerList">
+        {% for manufacturer in manufacturers %}
+        <option value="{{ manufacturer.name }}" data-id="{{ manufacturer.id }}">
+            {{ manufacturer.name }}{% if manufacturer.country %} ({{ manufacturer.country }}){% endif %}
+        </option>
+        {% endfor %}
+    </datalist>
+    <input type="hidden" id="manufacturer_id" name="manufacturer_id">
+    <!-- ... остальной код ... -->
+</div>
+
+        <!-- Скрытая форма для нового производителя -->
+        <div id="newManufacturerForm" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            <h4>➕ Новый производитель</h4>
             <div class="form-group">
-                <label for="name">Название товара:</label>
-                <input type="text" id="name" name="name" required>
+                <label>Название <span style="color: red;">*</span>:</label>
+                <input type="text" id="new_manufacturer_name" placeholder="Название производителя" style="width: 100%;">
             </div>
-            
             <div class="form-group">
-                <label for="price">Цена (руб.):</label>
-                <input type="number" id="price" name="price" step="0.01" min="0" required>
+                <label>Страна:</label>
+                <input type="text" id="new_manufacturer_country" placeholder="Страна" style="width: 100%;">
             </div>
-            
             <div class="form-group">
-                <label for="quantity">Количество:</label>
-                <input type="number" id="quantity" name="quantity" min="0" value="0">
+                <label>Описание:</label>
+                <textarea id="new_manufacturer_description" placeholder="Описание" style="width: 100%; height: 60px;"></textarea>
             </div>
-            
-            <div class="form-group">
-                <label for="category_id">Категория:</label>
-                <select id="category_id" name="category_id" required>
-                    <option value="">Выберите категорию</option>
-                    {% for category in categories %}
-                    <option value="{{ category.id }}">{{ category.name }}</option>
-                    {% endfor %}
-                </select>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="saveNewManufacturer()" class="btn btn-success">💾 Сохранить</button>
+                <button type="button" onclick="cancelNewManufacturer()" class="btn">Отмена</button>
             </div>
-            
-            <div class="form-group">
-                <label for="manufacturer">Производитель:</label>
-                <input type="text" id="manufacturer" name="manufacturer">
+        </div>
+
+        <!-- Тип рецептурности -->
+        <div class="form-group">
+            <label for="recept_id">Тип рецептурности <span style="color: red;">*</span>:</label>
+            <select id="recept_id" name="recept_id" required>
+                {% for recept in recepts %}
+                <option value="{{ recept.id }}">{{ recept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- БЛОК ОСТАТКОВ ПО АПТЕКАМ -->
+        <div class="form-group">
+            <label>Остатки по аптекам:</label>
+            <div id="pharmacies-stock" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                {% for pharmacy in pharmacies %}
+                <div style="display: flex; align-items: center; margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 4px; background-color: #fafafa;">
+                    <div style="flex: 2;">
+                        <strong>{{ pharmacy.name }}</strong><br>
+                        <small>{{ pharmacy.address or 'Адрес не указан' }}</small>
+                    </div>
+                    <div style="flex: 1; margin: 0 10px;">
+    <input type="number"
+           name="stock_{{ pharmacy.id }}"
+           id="stock_{{ pharmacy.id }}"
+           value="0"
+           min="0"
+           style="width: 100px;"
+           placeholder="Кол-во">
+    <!-- Добавляем скрытое поле для минимального остатка, если нужно сохранять кастомное значение -->
+    <input type="hidden"
+           name="min_stock_{{ pharmacy.id }}"
+           id="min_stock_{{ pharmacy.id }}"
+           value="5">
+</div>
+                    <div style="flex: 1;">
+                      <small>Мин. остаток:
+    {% set stock = pharmacy.stocks.first() if pharmacy.stocks else none %}
+    {% if stock and stock.min_quantity is not none %}
+        {{ stock.min_quantity }} шт.
+    {% else %}
+        5 шт. (по умолчанию)
+    {% endif %}
+</small>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
-            
-            <div class="form-group">
-                <label for="barcode">Штрих-код:</label>
-                <input type="text" id="barcode" name="barcode">
-            </div>
-            
-            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                <button type="submit" class="btn btn-success">💾 Сохранить товар</button>
-                <a href="/products" class="btn">Отмена</a>
-            </div>
-        </form>
-    </div>
+        </div>
+
+        <!-- Кнопка управления аптеками -->
+        <div style="margin-bottom: 1rem;">
+            <button type="button" onclick="window.location.href='/add_pharmacy'" class="btn" style="background-color: #6c757d;">
+                🏪 Добавить новую аптеку
+            </button>
+        </div>
+
+        <!-- Кнопки отправки формы -->
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem; border-top: 1px solid #ddd; padding-top: 1.5rem;">
+            <button type="submit" class="btn btn-success">💾 Сохранить товар</button>
+            <a href="/products" class="btn">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<!-- СКРИПТЫ -->
+<script>
+function filterCategories() {
+    const input = document.getElementById('categorySearch');
+    const filter = input.value.toLowerCase();
+    const select = document.getElementById('category_ids');
+    const options = select.getElementsByTagName('option');
+
+    for (let i = 0; i < options.length; i++) {
+        const text = options[i].text.toLowerCase();
+        options[i].style.display = text.includes(filter) ? '' : 'none';
+    }
+}
+
+function addNewManufacturer() {
+    document.getElementById('newManufacturerForm').style.display = 'block';
+}
+
+function saveNewManufacturer() {
+    const name = document.getElementById('new_manufacturer_name').value;
+    const country = document.getElementById('new_manufacturer_country').value;
+    const description = document.getElementById('new_manufacturer_description').value;
+
+    if (!name) {
+        alert('Введите название производителя');
+        return;
+    }
+
+    fetch('/api/manufacturers', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            name: name,
+            country: country,
+            description: description
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const datalist = document.getElementById('manufacturerList');
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name + (country ? ` (${country})` : '');
+            option.setAttribute('data-id', data.id);
+            datalist.appendChild(option);
+
+            // Устанавливаем значение в поле ввода
+            document.getElementById('manufacturer_name').value = name;
+            document.getElementById('manufacturer_id').value = data.id;
+
+            cancelNewManufacturer();
+            alert('Производитель успешно добавлен!');
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка при сохранении');
+        console.error(error);
+    });
+}
+
+function cancelNewManufacturer() {
+    document.getElementById('newManufacturerForm').style.display = 'none';
+    document.getElementById('new_manufacturer_name').value = '';
+    document.getElementById('new_manufacturer_country').value = '';
+    document.getElementById('new_manufacturer_description').value = '';
+}
+
+// Обработчик выбора производителя из datalist
+document.getElementById('manufacturer_name').addEventListener('input', function(e) {
+    const datalist = document.getElementById('manufacturerList');
+    const options = datalist.getElementsByTagName('option');
+    const hiddenInput = document.getElementById('manufacturer_id');
+
+    for (let option of options) {
+        if (option.value === e.target.value) {
+            const id = option.getAttribute('data-id');
+            if (id) {
+                hiddenInput.value = id;
+            }
+            break;
+        }
+    }
+});
+</script>
 {% endblock %}

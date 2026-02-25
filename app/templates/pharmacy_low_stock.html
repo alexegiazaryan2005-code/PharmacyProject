@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Товары с низким остатком в аптеке</h2>
+
+    {% if low_stock_items %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Текущий остаток</th>
+                <th>Минимальный остаток</th>
+                <th>Статус</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in low_stock_items %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.name }}</td>
+
+                <!-- Текущий остаток - пробуем разные варианты -->
+                <td>
+                    {% if item.stock is number %}
+                        {{ item.stock }}
+                    {% elif item.stock.quantity is defined %}
+                        {{ item.stock.quantity }}
+                    {% elif item.stock.amount is defined %}
+                        {{ item.stock.amount }}
+                    {% elif item.quantity is defined %}
+                        {{ item.quantity }}
+                    {% else %}
+                        {{ item.stock }}
+                    {% endif %}
+                </td>
+
+                <!-- Минимальный остаток - пробуем разные варианты -->
+                <td>
+                    {% if item.min_stock is defined %}
+                        {{ item.min_stock }}
+                    {% elif item.min_quantity is defined %}
+                        {{ item.min_quantity }}
+                    {% elif item.threshold is defined %}
+                        {{ item.threshold }}
+                    {% elif item.minimum is defined %}
+                        {{ item.minimum }}
+                    {% else %}
+                        Не указано
+                    {% endif %}
+                </td>
+
+                <!-- Статус -->
+                <td>
+                    {% set current = item.stock.quantity if item.stock.quantity is defined else item.stock %}
+                    {% set minimum = item.min_stock if item.min_stock is defined else item.min_quantity %}
+
+                    {% if current is number and minimum is number %}
+                        {% if current <= 0 %}
+                            <span class="badge bg-danger">Нет в наличии</span>
+                        {% elif current <= minimum %}
+                            <span class="badge bg-warning">Низкий остаток</span>
+                        {% else %}
+                            <span class="badge bg-success">В наличии</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-secondary">Данные неполные</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>Нет товаров с низким остатком.</p>
+    {% endif %}
+</div>
+{% endblock %}
