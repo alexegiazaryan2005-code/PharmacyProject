@@ -1,4 +1,10 @@
 {% extends "base.html" %}
+{#
+    Шаблон: edit_pharmacy.html
+    Назначение: редактирование существующей аптеки.
+    Важный паттерн: значения полей подставляются из текущего объекта pharmacy,
+    чтобы пользователь видел текущие данные и редактировал только нужные.
+#}
 
 {% block title %}Редактирование аптеки{% endblock %}
 
@@ -33,6 +39,10 @@
             </div>
             
             <div class="form-group">
+                {#
+                    Checkbox передаёт значение только если отмечен.
+                    Поэтому backend обычно проверяет `'is_active' in request.form`.
+                #}
                 <label>
                     <input type="checkbox" name="is_active" {% if pharmacy.is_active %}checked{% endif %}>
                     Аптека активна

@@ -1,10 +1,17 @@
-# check_db_file.py
+"""
+Файл: check_db_file.py
+Назначение: Проверка физического файла SQLite-базы (путь, наличие, размер, права доступа).
+Роль в проекте: low-level диагностика файловой системы, когда ORM-подключение вызывает вопросы.
+"""
+
 import os
 from app import create_app
 
 app = create_app()
 
 with app.app_context():
+    # [БЛОК: нормализация пути к БД]
+    # SQLite URI может быть относительным; приводим к абсолютному пути для надёжной проверки.
     db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
 
     # Проверяем абсолютный путь
@@ -15,7 +22,9 @@ with app.app_context():
     print(f"📁 Путь к файлу БД: {db_path}")
     print(f"📁 Папка instance: {app.instance_path}")
 
-    # Проверяем существование файла
+    # [БЛОК: ветвление по существованию файла]
+    # if/else здесь проще и понятнее, чем исключения по `open`,
+    # потому что нужно ещё обработать отсутствие папки instance.
     if os.path.exists(db_path):
         print(f"✅ Файл БД существует")
         print(f"📏 Размер файла: {os.path.getsize(db_path)} байт")

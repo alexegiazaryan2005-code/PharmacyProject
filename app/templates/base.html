@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <!--
+        Шаблон: base.html
+        Назначение: базовый каркас (layout) для остальных страниц через Jinja-наследование.
+        Почему так: единый layout уменьшает дублирование (DRY) и упрощает поддержку меню/стилей.
+        Альтернатива: копировать общие части в каждый файл, но это неудобно при изменениях.
+    -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Управление аптекой{% endblock %}</title>
@@ -230,6 +236,13 @@ window.onclick = function(event) {
     </ul>
 </nav>
     <div class="container">
+        {#
+            БЛОК flash-сообщений:
+            - with создаёт локальную область переменных в шаблоне;
+            - if/for выводит сообщения по категориям (success/error и т.д.).
+            Альтернатива: рендерить сообщения только в отдельных страницах,
+            но тогда часть уведомлений может не отобразиться при редиректах.
+        #}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -237,7 +250,7 @@ window.onclick = function(event) {
                 {% endfor %}
             {% endif %}
         {% endwith %}
-
+        {# Контент конкретной страницы будет подставлен в этот блок дочерними шаблонами. #}
         {% block content %}{% endblock %}
     </div>
 </body>

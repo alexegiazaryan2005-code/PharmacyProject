@@ -1,4 +1,10 @@
 {% extends "base.html" %}
+{#
+    Шаблон: sale.html
+    Назначение: форма оформления продажи из выбранной аптеки.
+    Логика: сначала выбирается аптека, затем по API подгружаются доступные товары и остатки.
+    Это уменьшает риск продажи товара, которого нет в конкретной точке.
+#}
 
 {% block title %}Реализация товаров{% endblock %}
 
@@ -84,6 +90,9 @@
 </div>
 
 <script>
+// [JS-БЛОК: каскадная загрузка данных]
+// fetch() получает список товаров именно выбранной аптеки.
+// Альтернатива: загружать все товары сразу, но это тяжелее и менее точно по остаткам.
 function loadProducts() {
     const pharmacyId = document.getElementById('pharmacy_id').value;
     const productSelect = document.getElementById('product_id');
@@ -137,6 +146,9 @@ function calculateSaleTotal() {
     const customerDiscount = parseFloat(document.getElementById('customer_discount').value) || 0;
     const promotionDiscount = parseFloat(document.getElementById('promotion_discount').value) || 0;
     
+    // Базовая формула итоговой стоимости:
+    // subtotal = quantity * pricePerUnit
+    // finalTotal = subtotal - discount
     const subtotal = quantity * pricePerUnit;
     const totalDiscount = subtotal * (customerDiscount + promotionDiscount) / 100;
     const finalTotal = subtotal - totalDiscount;

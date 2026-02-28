@@ -1,3 +1,27 @@
+"""
+Файл: app/routes.py
+Назначение: HTTP-маршруты Flask для интерфейса и API аптечной системы.
+Роль в архитектуре: presentation/controller layer — принимает запросы, валидирует вход,
+вызывает операции через ORM-модели и возвращает HTML/JSON-ответ.
+
+Импорты:
+- flask.*: роутинг, шаблоны, редиректы, flash-сообщения, JSON-ответы.
+- sqlalchemy.*: агрегирующие функции и SQL-условия.
+- app.extensions.db: сессия и SQL-функции ORM.
+- app.models.*: доменные сущности (товары, аптеки, остатки, продажи и т.д.).
+- random: генерация простых служебных номеров операций.
+
+Связи:
+- Шаблоны из app/templates/*.html.
+- Модели из app/models.py.
+- Регистрируется в app/__init__.py как Blueprint `main`.
+
+Почему выбран Blueprint:
+- Позволяет держать маршруты в модуле, а не смешивать их с кодом сборки приложения.
+- Альтернатива: class-based views или REST-фреймворк (например, Flask-RESTX),
+  предпочтительны при росте API и необходимости автодокументации.
+"""
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +36,21 @@ main = Blueprint('main', __name__)
 
 @main.route('/')
 def index():
-    """Главная страница"""
+    """
+    Отрисовывает главную страницу с агрегированной статистикой.
+
+    Параметры:
+        Нет.
+
+    Возвращает:
+        Response: HTML-страница `index.html`.
+
+    Исключения:
+        Явно не обрабатываются; ошибки БД могут быть проброшены Flask.
+
+    Примеры:
+        GET /
+    """
     products_count = Product.query.count()
     categories_count = Category.query.count()
     pharmacies_count = Pharmacy.query.count()
@@ -20,7 +58,10 @@ def index():
     # Общее количество товаров на всех аптеках
     total_stock_quantity = db.session.query(db.func.sum(Stock.quantity)).scalar() or 0
 
-    # Аптеки с критическим остатком
+    # [БЛОК: поиск аптек с критическим остатком]
+    # Выбран явный цикл для наглядности бизнес-логики студентам.
+    # Альтернатива: один SQL-запрос с JOIN/GROUP BY — быстрее на больших данных,
+    # но сложнее для первичного изучения ORM.
     low_stock_pharmacies = []
     for pharmacy in Pharmacy.query.filter_by(is_active=True).all():
         low_stock_count = Stock.query.filter(
@@ -43,7 +84,23 @@ def index():
 
 @main.route('/products')
 def products():
-    """Список товаров"""
+    """
+    Возвращает страницу списка товаров с поддержкой фильтрации.
+
+    Параметры:
+        category_id (int, optional): ID категории, берётся из query string.
+        manufacturer_id (int, optional): ID производителя.
+        recept_id (int, optional): ID типа рецептурности.
+        pharmacy_id (int, optional): ID аптеки (в текущей версии не используется в фильтре).
+        low_stock (bool, optional): флаг низкого остатка (в текущей версии не используется).
+
+    Возвращает:
+        Response: HTML `products.html`.
+
+    Примеры:
+        GET /products
+        GET /products?category_id=3&manufacturer_id=2
+    """
     # Получаем параметры фильтрации из запроса
     category_id = request.args.get('category_id', type=int)
     manufacturer_id = request.args.get('manufacturer_id', type=int)
@@ -51,7 +108,9 @@ def products():
     pharmacy_id = request.args.get('pharmacy_id', type=int)
     low_stock = request.args.get('low_stock', type=bool)
 
-    # Базовый запрос
+    # [БЛОК: сборка запроса по шагам]
+    # Подход с поэтапным query = query.filter(...) удобен, когда фильтры опциональны.
+    # Альтернатива: заранее собрать список условий и передать их в filter(*conditions).
     query = Product.query
 
     # Применяем фильтры
@@ -81,19 +140,43 @@ def products():
     )
 @main.route('/categories')
 def categories():
-    """Список категорий"""
+    """
+    Возвращает страницу со списком категорий товаров.
+
+    Параметры:
+        Нет.
+
+    Возвращает:
+        Response: HTML `categories.html`.
+
+    Исключения:
+        Явно не перехватываются; ошибки БД, если возникнут, будут обработаны Flask.
+
+    Примеры:
+        GET /categories
+    """
     categories_list = Category.query.all()
     return render_template('categories.html', categories=categories_list)
 
 
 @main.route('/api/products')
 def api_products():
-    """API для получения товаров (JSON)"""
+    """
+    Возвращает JSON-список товаров с агрегированным количеством и категориями.
+
+    Возвращает:
+        Response(JSON): массив объектов товаров.
+
+    Почему JSON вручную:
+        Явное формирование словаря помогает контролировать контракт API.
+        Альтернатива: схемы сериализации (Marshmallow/Pydantic) — лучше для крупных API.
+    """
     products_list = Product.query.all()
 
     result = []
     for product in products_list:
-        # Получаем общее количество через связанные остатки
+        # [БЛОК: подсчёт остатка по товару]
+        # sum(...).scalar() может вернуть None для пустого набора, поэтому `or 0`.
         total_quantity = db.session.query(db.func.sum(Stock.quantity)) \
                              .filter(Stock.product_id == product.id).scalar() or 0
 
@@ -114,7 +197,15 @@ def api_products():
 
 @main.route('/api/manufacturers', methods=['GET', 'POST'])
 def api_manufacturers():
-    # ... код ...
+    """
+    Возвращает JSON-список производителей.
+
+    Параметры:
+        HTTP method: GET/POST (в текущей версии фактически реализована логика GET).
+
+    Возвращает:
+        Response(JSON): массив производителей с полями id/name/country/description.
+    """
 
     # В GET запросе должно быть:
     manufacturers = Manufacturer.query.all()
@@ -130,7 +221,18 @@ def api_manufacturers():
 
 @main.route('/api/manufacturers/search')
 def search_manufacturers():
-    """Поиск производителей по названию"""
+    """
+    Выполняет поиск производителей по подстроке в названии.
+
+    Параметры:
+        q (str, optional): поисковая строка из query string.
+
+    Возвращает:
+        Response(JSON): массив объектов Select2-формата (`id`, `text`).
+
+    Примеры:
+        GET /api/manufacturers/search?q=phar
+    """
     search_term = request.args.get('q', '')
 
     if not search_term or len(search_term) < 2:
@@ -146,7 +248,28 @@ def search_manufacturers():
 
 @main.route('/add_product', methods=['GET', 'POST'])
 def add_product():
-    """Добавление нового товара"""
+    """
+    Обрабатывает создание нового товара и стартовых остатков по аптекам.
+
+    Параметры (POST form):
+        name (str, required): название товара.
+        price (float, required): цена.
+        category_ids (list[int], optional): категории товара.
+        manufacturer_id (int, optional): производитель.
+        recept_id (int, required): тип рецептурности.
+        barcode (str, optional): штрихкод.
+        stock_<pharmacy_id> (int, optional): начальный остаток для каждой аптеки.
+
+    Возвращает:
+        Response: редирект на список товаров при успехе или обратно на форму при ошибке.
+
+    Исключения:
+        Любые исключения БД/преобразования перехватываются в общем except c rollback.
+
+    Примеры:
+        GET /add_product
+        POST /add_product
+    """
     if request.method == 'POST':
         name = request.form.get('name')
         price = float(request.form.get('price'))
@@ -157,7 +280,9 @@ def add_product():
         recept_id = int(request.form.get('recept_id'))
         barcode = request.form.get('barcode')
 
-        # Получаем начальные остатки по аптекам
+        # [БЛОК: извлечение динамических полей stock_*]
+        # Выбран разбор request.form.items(), так как число аптек заранее неизвестно.
+        # Альтернатива: JSON-структура в скрытом поле, но она сложнее для простых HTML-форм.
         pharmacy_stocks = {}
         for key, value in request.form.items():
             if key.startswith('stock_'):
@@ -175,7 +300,8 @@ def add_product():
                 barcode=barcode
             )
 
-            # Добавляем категории
+            # [БЛОК: привязка many-to-many категорий]
+            # В цикле проверяем существование категории, чтобы избежать ошибки внешнего ключа.
             for cat_id in category_ids:
                 category = Category.query.get(cat_id)
                 if category:
@@ -185,7 +311,9 @@ def add_product():
             db.session.add(new_product)
             db.session.flush()
 
-            # Добавляем остатки по аптекам с проверкой существования
+            # [БЛОК: upsert-логика остатков]
+            # Почему такой подход: избегаем дублей благодаря проверке + уникальному ограничению в модели Stock.
+            # Альтернатива: SQL UPSERT (INSERT ... ON CONFLICT), обычно быстрее, но менее переносим между СУБД.
             for pharmacy_id, quantity in pharmacy_stocks.items():
                 existing_stock = Stock.query.filter_by(
                     pharmacy_id=pharmacy_id,
@@ -229,7 +357,15 @@ def add_product():
 
 @main.route('/edit_product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product(product_id):
-    """Редактирование существующего товара"""
+    """
+    Заготовка маршрута редактирования товара.
+
+    Параметры:
+        product_id (int, required): ID товара из URL.
+
+    Возвращает:
+        Response: временный редирект на список товаров.
+    """
     product = Product.query.get_or_404(product_id)
 
     if request.method == 'POST':
@@ -241,6 +377,19 @@ def edit_product(product_id):
     return redirect(url_for('main.products'))
 @main.route('/add_category', methods=['GET', 'POST'])
 def add_category():
+    """
+    Создаёт новую категорию товара.
+
+    Параметры (POST form):
+        name (str, required): название категории.
+        description (str, optional): описание.
+
+    Возвращает:
+        Response: редирект на список категорий или форму.
+
+    Исключения:
+        IntegrityError: при нарушении ограничений целостности (например, дубликат).
+    """
     if request.method == 'POST':
         name = request.form.get('name')
         description = request.form.get('description')
@@ -249,7 +398,8 @@ def add_category():
             flash('Название категории обязательно для заполнения!', 'error')
             return redirect(url_for('main.add_category'))
 
-        # Проверяем существование категории
+        # [БЛОК: защита от дубликатов на уровне приложения]
+        # Это дружелюбнее, чем полагаться только на SQL-ошибку при commit.
         existing_category = Category.query.filter_by(name=name).first()
         if existing_category:
             flash('Категория с таким названием уже существует!', 'error')
@@ -272,10 +422,20 @@ def add_category():
 
 @main.route('/pharmacies')
 def pharmacies():
-    """Список аптек сети"""
+    """
+    Показывает список аптек и число позиций с низким остатком в каждой аптеке.
+
+    Возвращает:
+        Response: HTML `pharmacies.html`.
+
+    Почему отдельный агрегирующий запрос:
+        Позволяет избежать N+1 подсчётов в шаблоне.
+    """
     pharmacies_list = Pharmacy.query.order_by(Pharmacy.name).all()
 
-    # Оптимизированный запрос для получения всех low_stock_counts одним запросом
+    # [БЛОК: групповой подсчёт low stock]
+    # Используем GROUP BY для подсчёта по каждой аптеке за один запрос.
+    # Альтернатива: отдельный count() в цикле по аптекам (проще, но медленнее при росте данных).
     from sqlalchemy import func
     low_stock_counts = dict(
         db.session.query(
@@ -292,7 +452,18 @@ def pharmacies():
 
 @main.route('/add_pharmacy', methods=['GET', 'POST'])
 def add_pharmacy():
-    """Добавление новой аптеки"""
+    """
+    Создаёт новую аптеку сети с базовой валидацией формы.
+
+    Параметры (POST form):
+        name (str, required), address/phone/email/working_hours (str, optional).
+
+    Возвращает:
+        Response: редирект на список аптек при успехе, иначе обратно к форме.
+
+    Исключения:
+        IntegrityError: дубликат уникального названия.
+    """
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         address = request.form.get('address', '').strip()
@@ -300,7 +471,9 @@ def add_pharmacy():
         email = request.form.get('email', '').strip()
         working_hours = request.form.get('working_hours', '').strip()
 
-        # Валидация
+        # [БЛОК: минимальная валидация входа]
+        # В текущем проекте применена простая ручная валидация.
+        # Альтернатива: WTForms/Flask-WTF для декларативной и переиспользуемой валидации.
         if not name:
             flash('Название аптеки обязательно!', 'error')
             return redirect(url_for('main.add_pharmacy'))
@@ -352,6 +525,15 @@ def add_pharmacy():
 
 @main.route('/edit_pharmacy/<int:pharmacy_id>', methods=['GET', 'POST'])
 def edit_pharmacy(pharmacy_id):
+    """
+    Редактирует существующую аптеку.
+
+    Параметры:
+        pharmacy_id (int, required): ID аптеки из URL.
+
+    Возвращает:
+        Response: форма редактирования (GET) или редирект (POST).
+    """
     pharmacy = Pharmacy.query.get_or_404(pharmacy_id)
 
     if request.method == 'POST':
@@ -382,7 +564,15 @@ def edit_pharmacy(pharmacy_id):
 
 @main.route('/pharmacy/<int:pharmacy_id>/low-stock')
 def pharmacy_low_stock(pharmacy_id):
-    """Просмотр товаров с низким остатком в конкретной аптеке"""
+    """
+    Показывает товары с остатком ниже минимального для конкретной аптеки.
+
+    Параметры:
+        pharmacy_id (int, required): ID аптеки.
+
+    Возвращает:
+        Response: HTML `pharmacy_low_stock.html`.
+    """
     pharmacy = Pharmacy.query.get_or_404(pharmacy_id)
 
     # Получаем товары, где количество меньше минимального
@@ -391,7 +581,8 @@ def pharmacy_low_stock(pharmacy_id):
         Stock.quantity < Stock.min_quantity
     ).all()
 
-    # Обогащаем данными о товарах
+    # [БЛОК: enrichment данных для шаблона]
+    # Формируем структуру, где сразу есть товар и величина дефицита (shortage).
     items_with_products = []
     for stock in low_stock_items:
         product = Product.query.get(stock.product_id)
@@ -408,7 +599,19 @@ def pharmacy_low_stock(pharmacy_id):
 
 @main.route('/supply', methods=['GET', 'POST'])
 def supply():
-    """Поступление товаров"""
+    """
+    Оформляет поступление товара в аптеку и увеличивает остаток на складе.
+
+    Параметры (POST form):
+        supply_number, product_id, pharmacy_id, quantity, purchase_price,
+        markup_percent, supplier_discount, selling_price, total_amount, notes.
+
+    Возвращает:
+        Response: форма (GET) или редирект после обработки (POST).
+
+    Исключения:
+        Общий except перехватывает ошибки преобразования и БД.
+    """
     if request.method == 'POST':
         supply_number = request.form.get('supply_number')
         product_id = int(request.form.get('product_id'))
@@ -421,7 +624,9 @@ def supply():
         total_amount = float(request.form.get('total_amount'))
         notes = request.form.get('notes')
 
-        # Сохраняем файл накладной
+        # [БЛОК: обработка файла накладной]
+        # Текущая реализация минимальная: сохраняет по вычисленному пути.
+        # Альтернатива (предпочтительна): `werkzeug.utils.secure_filename` + отдельная папка uploads.
         invoice_file = None
         if 'invoice_file' in request.files:
             file = request.files['invoice_file']
@@ -447,7 +652,9 @@ def supply():
             )
             db.session.add(new_supply)
 
-            # Обновляем остатки в аптеке
+            # [БЛОК: обновление остатка (increase)]
+            # Если запись остатка есть — увеличиваем quantity.
+            # Если нет — создаём новую запись (инициализация товарного остатка в аптеке).
             stock = Stock.query.filter_by(
                 pharmacy_id=pharmacy_id,
                 product_id=product_id
@@ -485,7 +692,16 @@ def supply():
 
 @main.route('/sale', methods=['GET', 'POST'])
 def sale():
-    """Реализация товаров"""
+    """
+    Оформляет продажу и уменьшает остаток товара в выбранной аптеке.
+
+    Параметры (POST form):
+        sale_number, product_id, pharmacy_id, quantity,
+        customer_discount, promotion_discount, total_amount, use_fifo.
+
+    Возвращает:
+        Response: форма продажи (GET) либо редирект (POST).
+    """
     if request.method == 'POST':
         sale_number = request.form.get('sale_number')
         product_id = int(request.form.get('product_id'))
@@ -497,7 +713,8 @@ def sale():
         use_fifo = 'use_fifo' in request.form
 
         try:
-            # Проверяем наличие товара
+            # [БЛОК: проверка достаточности остатка]
+            # Условие `not stock or stock.quantity < quantity` защищает от отрицательных остатков.
             stock = Stock.query.filter_by(
                 pharmacy_id=pharmacy_id,
                 product_id=product_id
@@ -548,13 +765,21 @@ def sale():
 @main.route('/sales/create/', methods=['GET', 'POST'])
 @main.route('/sales/create', methods=['GET', 'POST'])
 def sales_create():
-    """Создание новой продажи - перенаправляет на основной маршрут /sale"""
+    """Совместимый URL для создания продажи; перенаправляет на основной маршрут `/sale`."""
     return redirect(url_for('main.sale'))
 
 
 @main.route('/transfer', methods=['GET', 'POST'])
 def transfer():
-    """Перемещение товаров между аптеками"""
+    """
+    Заготовка операции перемещения между аптеками.
+
+    Возвращает:
+        Response: форма `transfer.html`.
+
+    Примечание:
+        Ветка POST пока содержит `pass`, то есть бизнес-логика перемещения ещё не реализована.
+    """
     # ... существующий код функции transfer ...
     if request.method == 'POST':
         # ... код обработки POST ...
@@ -573,13 +798,21 @@ def transfer():
 @main.route('/transfers/create/', methods=['GET', 'POST'])
 @main.route('/transfers/create', methods=['GET', 'POST'])
 def create_transfer():
-    """Создание нового перемещения (альтернативный URL)"""
+    """Альтернативный URL создания перемещения; повторно использует функцию transfer()."""
     return transfer()  # Перенаправляем на существующую функцию
 
 
 @main.route('/api/pharmacy/<int:pharmacy_id>/products')
 def api_pharmacy_products(pharmacy_id):
-    """API для получения товаров в конкретной аптеке с остатками"""
+    """
+    Возвращает JSON-список товаров, доступных в конкретной аптеке, вместе с остатком.
+
+    Параметры:
+        pharmacy_id (int, required): ID аптеки.
+
+    Возвращает:
+        Response(JSON): массив товаров с `stock_quantity`.
+    """
     stocks = Stock.query.filter_by(pharmacy_id=pharmacy_id).all()
     result = []
 
@@ -599,7 +832,16 @@ def api_pharmacy_products(pharmacy_id):
 
 @main.route('/api/stock/<int:pharmacy_id>/<int:product_id>')
 def api_get_stock(pharmacy_id, product_id):
-    """API для получения информации об остатках конкретного товара в аптеке"""
+    """
+    Возвращает детали остатка по паре (аптека, товар).
+
+    Параметры:
+        pharmacy_id (int, required): ID аптеки.
+        product_id (int, required): ID товара.
+
+    Возвращает:
+        Response(JSON): quantity/min/max/shelf_location или quantity=0, если записи нет.
+    """
     stock = Stock.query.filter_by(
         pharmacy_id=pharmacy_id,
         product_id=product_id
@@ -618,17 +860,41 @@ def api_get_stock(pharmacy_id, product_id):
 
 @main.route('/supplies')
 def supplies_list():
-    """Список поступлений"""
+    """
+    Показывает список поступлений, отсортированный по дате по убыванию.
+
+    Параметры:
+        Нет.
+
+    Возвращает:
+        Response: HTML `supplies_list.html`.
+
+    Примеры:
+        GET /supplies
+    """
     supplies = Supply.query.order_by(Supply.supply_date.desc()).all()
     return render_template('supplies_list.html', supplies=supplies)
 
 
 @main.route('/sales')
 def sales_list():
-    """Список продаж"""
+    """
+    Отображает список продаж.
+
+    Примечание:
+        В коде добавляется `DummyCustomer` для временной совместимости шаблона,
+        ожидающего поле `sale.customer.name`.
+
+    Возвращает:
+        Response: HTML `sales_list.html`.
+
+    Примеры:
+        GET /sales
+    """
     sales = Sale.query.order_by(Sale.sale_date.desc()).all()
 
-    # Добавляем фиктивного покупателя к каждой продаже для тестирования
+    # [БЛОК: временная адаптация данных под шаблон]
+    # Альтернатива (правильнее): добавить реальную модель Customer и связь в Sale.
     for sale in sales:
         # Создаем временный объект с атрибутом name
         class DummyCustomer:
@@ -641,21 +907,51 @@ def sales_list():
 
 @main.route('/transfers')
 def transfers_list():
-    """Список перемещений"""
+    """
+    Возвращает страницу со списком перемещений между аптеками.
+
+    Параметры:
+        Нет.
+
+    Возвращает:
+        Response: HTML `transfers_list.html`.
+    """
     transfers = Transfer.query.order_by(Transfer.transfer_date.desc()).all()
     return render_template('transfers_list.html', transfers=transfers)
 
 
 @main.route('/transfers/<int:transfer_id>')
 def view_transfer(transfer_id):
-    """Просмотр деталей конкретного перемещения"""
+    """
+    Показывает детали одного перемещения по его ID.
+
+    Параметры:
+        transfer_id (int, required): идентификатор записи перемещения.
+
+    Возвращает:
+        Response: HTML `view_transfer.html`.
+
+    Исключения:
+        404 Not Found: если запись не существует (через get_or_404).
+    """
     transfer = Transfer.query.get_or_404(transfer_id)
     return render_template('view_transfer.html', transfer=transfer)
 
 
 @main.route('/transfers/<int:transfer_id>/edit', methods=['GET', 'POST'])
 def edit_transfer(transfer_id):
-    """Редактирование перемещения"""
+    """
+    Редактирует статус и примечание перемещения.
+
+    Параметры:
+        transfer_id (int, required): ID перемещения.
+
+    Возвращает:
+        Response: форма редактирования (GET) или редирект на список (POST).
+
+    Исключения:
+        404 Not Found: если перемещение не найдено.
+    """
     transfer = Transfer.query.get_or_404(transfer_id)
 
     if request.method == 'POST':
@@ -676,7 +972,15 @@ def edit_transfer(transfer_id):
 
 @main.route('/transfers/<int:transfer_id>/delete', methods=['POST'])
 def delete_transfer(transfer_id):
-    """Удаление перемещения"""
+    """
+    Удаляет запись перемещения и при необходимости корректирует остатки.
+
+    Параметры:
+        transfer_id (int, required): ID перемещения.
+
+    Почему проверяется status == 'completed':
+        Только выполненное перемещение реально влияло на остатки.
+    """
     transfer = Transfer.query.get_or_404(transfer_id)
 
     try:
@@ -709,7 +1013,15 @@ def delete_transfer(transfer_id):
 
 @main.route('/debug/check')
 def debug_check():
-    """Диагностика состояния базы данных"""
+    """
+    Отладочный endpoint: возвращает агрегированную диагностику по БД в JSON.
+
+    Параметры:
+        Нет.
+
+    Возвращает:
+        Response(JSON): счётчики сущностей и список атрибутов sample-товара.
+    """
     result = {
         'products_count': Product.query.count(),
         'categories_count': Category.query.count(),
@@ -730,7 +1042,16 @@ def debug_check():
 
 @main.route('/debug/routes')
 def debug_routes():
-    """Показать все доступные маршруты"""
+    """
+    Отладочный endpoint: выводит список доступных маршрутов приложения.
+
+    Возвращает:
+        str: HTML-строка с переносами `<br>` между маршрутами.
+
+    Почему строка, а не JSON:
+        Быстро читается в браузере без форматтера.
+        Альтернатива: jsonify(sorted(links)) для машинной обработки.
+    """
     import urllib
     from flask import url_for, current_app
 
@@ -745,7 +1066,12 @@ def debug_routes():
 
 @main.route('/test-transfers')
 def test_transfers():
-    """Тестовый маршрут для проверки"""
+    """
+    Тестовый маршрут: быстро показывает количество перемещений в базе.
+
+    Возвращает:
+        str: короткое текстовое сообщение с числом записей.
+    """
     from app.models import Transfer
     transfers = Transfer.query.all()
     return f"Найдено перемещений: {len(transfers)}"
@@ -753,9 +1079,19 @@ def test_transfers():
 
 @main.route('/all-low-stock')
 def all_low_stock():
+    """
+    Показывает объединённый список дефицитных позиций по всем аптекам.
+
+    Возвращает:
+        Response: HTML `all_low_stock.html`.
+    """
     low_stock_items = []
     pharmacies = Pharmacy.query.all()
 
+    # [БЛОК: двойной цикл аптека -> остатки]
+    # Плюс: код читаемый для обучения.
+    # Минус: может быть медленно на больших объёмах (N+1 запросы).
+    # Альтернатива: один JOIN-запрос с фильтрацией по условию low stock.
     for pharmacy in pharmacies:
         stocks = Stock.query.filter_by(pharmacy_id=pharmacy.id).all()
         for stock in stocks:

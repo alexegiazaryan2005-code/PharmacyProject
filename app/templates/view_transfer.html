@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{#
+    Шаблон: view_transfer.html
+    Назначение: карточка одного перемещения с деталями и действиями.
+    Почему отдельный экран: удобнее для аудита и проверки истории конкретной операции.
+#}
 
 {% block title %}Детали перемещения{% endblock %}
 
@@ -35,6 +40,10 @@
             <tr>
                 <th>Статус:</th>
                 <td>
+                    {#
+                        Маппинг внутренних статусов в визуальные бейджи.
+                        Альтернатива: сформировать display_status в Python и оставить шаблон проще.
+                    #}
                     {% if transfer.status == 'completed' %}
                         <span class="status-badge status-completed">✅ Выполнено</span>
                     {% elif transfer.status == 'pending' %}

@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <!--
+        Шаблон: transfers_list.html
+        Назначение: самостоятельный журнал перемещений со статусами и действиями.
+        Особенность: статус визуализируется через if/elif/else, что делает бизнес-состояния читаемыми.
+    -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Список перемещений</title>
@@ -109,6 +114,10 @@
             </tr>
         </thead>
         <tbody>
+            {#
+                for/else обеспечивает корректный empty-state,
+                когда в системе ещё нет ни одного перемещения.
+            #}
             {% for transfer in transfers %}
             <tr>
                 <td><a href="{{ url_for('main.view_transfer', transfer_id=transfer.id) }}">{{ transfer.id }}</a></td>

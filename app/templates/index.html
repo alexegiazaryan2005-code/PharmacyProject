@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{#
+    Шаблон: index.html
+    Назначение: дашборд с ключевыми агрегатами и блоком «низкие остатки».
+    Связь: данные приходят из маршрута main.index.
+#}
 
 {% block title %}Главная страница{% endblock %}
 
@@ -29,10 +34,21 @@
 
 <!-- Блок аптек с критическим остатком -->
 {% if low_stock_pharmacies %}
+{#
+    Условный вывод списка:
+    - если список пуст, блок полностью скрывается, чтобы не перегружать UI;
+    - иначе показываем только «проблемные» аптеки.
+    Альтернатива: всегда показывать блок с текстом "всё в норме".
+#}
 <div class="card" style="border-left: 4px solid #dc3545;">
     <h2 style="color: #dc3545;">⚠️ Требуется пополнение</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-top: 1rem;">
         {% for item in low_stock_pharmacies %}
+        {#
+            Цикл for проходит по каждому элементу списка low_stock_pharmacies.
+            Условие выхода цикла обеспечивается конечной длиной списка,
+            переданного из Python-кода.
+        #}
         <div style="padding: 1rem; background-color: #fff3f3; border-radius: 8px;">
             <h3 style="margin-bottom: 0.5rem;">{{ item.pharmacy.name }}</h3>
             <p style="font-size: 1.2rem; font-weight: bold; color: #dc3545;">

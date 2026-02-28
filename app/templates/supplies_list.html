@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{#
+    Шаблон: supplies_list.html
+    Назначение: журнал всех поступлений с ключевыми финансовыми полями.
+    Особенность: форматирование суммы через "%.2f" делает вывод стабильным по знакам после запятой.
+#}
 
 {% block title %}Поступления товаров{% endblock %}
 
@@ -26,6 +31,10 @@
             </tr>
         </thead>
         <tbody>
+            {#
+                for/else-паттерн Jinja:
+                если список `supplies` пуст, выполняется блок else с сообщением пользователю.
+            #}
             {% for supply in supplies %}
             <tr>
                 <td><strong>{{ supply.supply_number }}</strong></td>

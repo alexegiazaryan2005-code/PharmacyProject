@@ -1,4 +1,10 @@
 {% extends "base.html" %}
+{#
+    Шаблон: add_product.html
+    Назначение: создание товара с привязкой категорий, производителя и стартовых остатков.
+    Почему один экран: уменьшает число шагов для оператора при первичном заведении позиции.
+    Альтернатива: мастер из нескольких шагов (wizard), удобнее для сложных карточек.
+#}
 
 {% block title %}Добавить товар{% endblock %}
 
@@ -85,7 +91,11 @@
             </select>
         </div>
 
-        <!-- БЛОК ОСТАТКОВ ПО АПТЕКАМ -->
+        <!--
+            БЛОК остатков по аптекам:
+            каждое поле имеет имя вида stock_<id_аптеки>,
+            чтобы backend мог собрать словарь {pharmacy_id: quantity} динамически.
+        -->
         <div class="form-group">
             <label>Остатки по аптекам:</label>
             <div id="pharmacies-stock" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
@@ -141,6 +151,9 @@
 
 <!-- СКРИПТЫ -->
 <script>
+// [JS-БЛОК: фильтрация категорий]
+// Выбран простой клиентский фильтр по `text.includes(filter)`.
+// Альтернатива: серверный поиск по API (полезно при тысячах категорий).
 function filterCategories() {
     const input = document.getElementById('categorySearch');
     const filter = input.value.toLowerCase();
@@ -167,6 +180,8 @@ function saveNewManufacturer() {
         return;
     }
 
+    // [JS-БЛОК: отправка JSON на backend]
+    // POST + application/json выбран для удобной передачи структуры объекта.
     fetch('/api/manufacturers', {
         method: 'POST',
         headers: {

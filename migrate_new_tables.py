@@ -1,10 +1,35 @@
+"""
+Файл: migrate_new_tables.py
+Назначение: Ручная SQL-миграция для создания таблиц supply/sale/transfer и индексов.
+Роль в проекте: резервный путь миграции без Flask-Migrate/Alembic.
+
+Почему напрямую через sqlite3:
+- Даёт полный контроль над DDL-командами.
+- Альтернатива: ORM create_all() или Alembic (предпочтительно для версионируемых миграций).
+"""
+
 from app import create_app, db
 import sqlite3
 import os
 
 
 def migrate_tables():
-    """Создание новых таблиц в базе данных"""
+    """
+    Создаёт новые таблицы и индексы в SQLite-базе, если они ещё не существуют.
+
+    Параметры:
+        Нет.
+
+    Возвращает:
+        None.
+
+    Исключения:
+        Внутри циклов DDL/индексов ошибки перехватываются локально, чтобы остальные операции продолжились.
+
+    Примеры:
+        migrate_tables()
+        # Создаст таблицы supply/sale/transfer и выведет итоговый список таблиц
+    """
 
     # Сначала создаем приложение для импорта моделей
     app = create_app()
@@ -20,7 +45,8 @@ def migrate_tables():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # SQL для создания новых таблиц (с проверкой существования)
+        # [БЛОК: DDL-команды CREATE TABLE IF NOT EXISTS]
+        # Такая форма гарантирует идемпотентность: повторный запуск не ломает схему.
         create_tables = [
             """
             CREATE TABLE IF NOT EXISTS supply (
@@ -77,7 +103,9 @@ def migrate_tables():
             """
         ]
 
-        # Создаем таблицы
+        # [БЛОК: выполнение DDL таблиц]
+        # Порядок в списке важен только для читаемости; из-за IF NOT EXISTS повторный запуск безопасен.
+        # Альтернатива: одна транзакция с жёстким прерыванием при первой ошибке (строже, но менее диагностично).
         for sql in create_tables:
             try:
                 cursor.execute(sql)
@@ -85,7 +113,9 @@ def migrate_tables():
             except Exception as e:
                 print(f"❌ Ошибка: {e}")
 
-        # Создаем индексы
+        # [БЛОК: создание индексов]
+        # Индексы ускоряют фильтрацию/соединения по внешним ключам.
+        # Цена: немного медленнее INSERT/UPDATE и больше занимаемого места.
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_supply_product ON supply(product_id);",
             "CREATE INDEX IF NOT EXISTS idx_supply_pharmacy ON supply(pharmacy_id);",
@@ -96,6 +126,8 @@ def migrate_tables():
             "CREATE INDEX IF NOT EXISTS idx_transfer_to ON transfer(to_pharmacy_id);"
         ]
 
+        # [БЛОК: создание индексов]
+        # Цикл прекращается естественно после обработки всех SQL-команд в списке indexes.
         for sql in indexes:
             try:
                 cursor.execute(sql)

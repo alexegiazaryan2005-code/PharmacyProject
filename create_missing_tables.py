@@ -1,4 +1,9 @@
-# create_missing_tables.py
+"""
+Файл: create_missing_tables.py
+Назначение: Проверяет, какие таблицы отсутствуют в БД, и создаёт их.
+Роль в проекте: восстановление схемы после частичных миграций или ручных изменений.
+"""
+
 from app import create_app, db
 from app.models import *
 import sqlite3
@@ -6,6 +11,15 @@ import os
 
 
 def create_missing_tables():
+    """
+    Создаёт недостающие таблицы и при необходимости добавляет стартовые типы рецептурности.
+
+    Возвращает:
+        None.
+
+    Исключения:
+        Явно не перехватываются на уровне функции; возможные ошибки БД будут проброшены.
+    """
     app = create_app()
 
     with app.app_context():
@@ -16,7 +30,8 @@ def create_missing_tables():
         existing_tables = inspector.get_table_names()
         print(f"📋 Существующие таблицы: {existing_tables}")
 
-        # Список всех моделей
+        # [БЛОК: ожидаемые таблицы]
+        # Здесь указаны имена таблиц как их «видит» БД, а не имена Python-классов.
         all_models = [
             'recept',
             'category',
@@ -30,14 +45,14 @@ def create_missing_tables():
             'transfer'
         ]
 
-        # Проверяем, каких таблиц нет
+        # Вычисляем разницу множеств (фактически в форме list comprehension).
         missing_tables = [t for t in all_models if t not in existing_tables]
 
         if missing_tables:
             print(f"⚠️ Отсутствуют таблицы: {missing_tables}")
             print("🔄 Создаем недостающие таблицы...")
 
-            # Создаем все таблицы (безопасно - существующие не будут перезаписаны)
+            # create_all() безопасен для существующих таблиц: не удаляет и не переопределяет их.
             db.create_all()
 
             # Проверяем результат

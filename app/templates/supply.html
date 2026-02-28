@@ -1,4 +1,10 @@
 {% extends "base.html" %}
+{#
+    Шаблон: supply.html
+    Назначение: форма оформления поступления товара (приходная операция).
+    Связь: отправляет данные в маршрут main.supply.
+    В форме сочетаются пользовательский ввод и вычисляемые поля (hidden inputs).
+#}
 
 {% block title %}Поступление товаров{% endblock %}
 
@@ -97,6 +103,9 @@
 </div>
 
 <script>
+// [JS-БЛОК: пересчёт итогов формы]
+// Почему расчёт на клиенте: пользователь видит итог до отправки формы.
+// Альтернатива: считать только на backend (надёжнее), но UX хуже без мгновенной обратной связи.
 function updateProductInfo() {
     const select = document.getElementById('product_id');
     const selected = select.options[select.selectedIndex];
@@ -113,7 +122,9 @@ function calculateTotal() {
     const markupPercent = parseFloat(document.getElementById('markup_percent').value) || 0;
     const supplierDiscount = parseFloat(document.getElementById('supplier_discount').value) || 0;
     
-    // Расчёт цены продажи с наценкой
+    // Расчёт цены продажи с наценкой.
+    // Формула: sellingPrice = purchasePrice * (1 + markupPercent / 100)
+    // Для финансовой точности в сложных системах лучше Decimal на backend.
     const sellingPrice = purchasePrice * (1 + markupPercent / 100);
     
     // Расчёт суммы скидки от поставщика

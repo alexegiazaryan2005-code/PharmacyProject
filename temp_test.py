@@ -1,8 +1,21 @@
+"""
+Файл: temp_test.py
+Назначение: Самодостаточный тестовый Flask-сервер с inline-шаблонами для проверки вёрстки списков.
+Роль в проекте: изолированная песочница (sandbox) для ручного UI-тестирования без основной БД.
+
+Импорты:
+- flask.Flask: минимальное веб-приложение.
+- flask.render_template_string: рендер HTML-шаблонов из строк.
+"""
+
 from flask import Flask, render_template_string
 
 app = Flask(__name__)
 
 # ========== ШАБЛОН ПРОДАЖ ==========
+# Встроенный шаблон выбран для изолированного теста: не зависит от файловой системы templates/.
+# Альтернатива: render_template('sales_list.html') с реальным шаблоном проекта.
+# Это ближе к production, но усложняет локальную диагностику конкретного фрагмента.
 SALES_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -45,6 +58,12 @@ SALES_TEMPLATE = """
         </thead>
         <tbody>
             {% for sale in sales %}
+                {#
+                    Конструкция for...else в Jinja:
+                    - блок for выполняется, если список sales не пустой;
+                    - блок else выполняется, если элементов нет.
+                    Альтернатива: отдельный if sales перед циклом.
+                #}
             <tr>
                 <td>{{ sale.id }}</td>
                 <td>{{ sale.product.name }}</td>
@@ -70,6 +89,7 @@ SALES_TEMPLATE = """
 """
 
 # ========== ШАБЛОН ПЕРЕМЕЩЕНИЙ ==========
+# Аналогичный подход со строковым шаблоном позволяет быстро тестировать только UI-логику.
 TRANSFERS_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -115,6 +135,10 @@ TRANSFERS_TEMPLATE = """
         </thead>
         <tbody>
             {% for transfer in transfers %}
+                {#
+                    Ветка if/elif/else в шаблоне маппит внутренние статусы на человекочитаемые подписи.
+                    Альтернатива: подготовить display_status на стороне Python и упростить HTML.
+                #}
             <tr>
                 <td>{{ transfer.id }}</td>
                 <td>{{ transfer.product.name }}</td>
@@ -153,6 +177,18 @@ TRANSFERS_TEMPLATE = """
 # ========== МАРШРУТЫ ==========
 @app.route('/')
 def index():
+    """
+    Отдаёт стартовую страницу с ссылками на тестовые сценарии.
+
+    Возвращает:
+        str: HTML-фрагмент.
+
+    Исключения:
+        Явно не выбрасывает; потенциальные ошибки ограничены формированием строки.
+
+    Примеры:
+        GET /
+    """
     return '''
     <h1>✅ ТЕСТОВЫЙ СЕРВЕР РАБОТАЕТ!</h1>
     <p>Проверка исправленных шаблонов:</p>
@@ -167,29 +203,80 @@ def index():
 
 @app.route('/test-sales')
 def test_sales():
-    """Тест с пустым списком продаж"""
+    """
+    Проверяет шаблон продаж на граничном случае пустого списка.
+
+    Почему важно:
+        В Jinja-блоке `{% for %} ... {% else %}` должно отработать сообщение «нет данных».
+
+    Возвращает:
+        Response: HTML, собранный через `render_template_string`.
+
+    Примеры:
+        GET /test-sales
+    """
     return render_template_string(SALES_TEMPLATE, sales=[])
 
 
 @app.route('/test-transfers')
 def test_transfers():
-    """Тест с пустым списком перемещений"""
+    """
+    Проверяет шаблон перемещений на пустом наборе данных.
+
+    Возвращает:
+        Response: HTML с fallback-строкой «Нет доступных перемещений».
+    """
     return render_template_string(TRANSFERS_TEMPLATE, transfers=[])
 
 
 @app.route('/test-sales-with-data')
 def test_sales_with_data():
-    """Тест с данными продаж"""
+    """
+    Проверяет шаблон продаж с искусственными данными.
+
+    Подход:
+        Внутренние классы Test* имитируют структуру реальных ORM-объектов.
+        Альтернатива: использовать фикстуры pytest или мок-объекты.
+
+    Возвращает:
+        Response: HTML таблица с тестовыми продажами.
+
+    Примеры:
+        GET /test-sales-with-data
+    """
 
     class TestProduct:
+        """
+        Минимальная модель товара для шаблона.
+
+        Что моделирует:
+            Сущность продукта с полем `name`.
+
+        ООП:
+            **Инкапсуляция** — состояние объекта (`name`) хранится внутри экземпляра.
+        """
         def __init__(self):
+            """Инициализирует тестовый продукт с фиксированным названием."""
             self.name = "Тестовый продукт"
 
     class TestCustomer:
+        """Минимальная модель покупателя, содержащая только отображаемое имя."""
         def __init__(self):
+            """Инициализирует тестового покупателя с фиктивным ФИО."""
             self.name = "Иванов И.И."
 
     class TestSale:
+        """
+        Тестовая модель продажи, повторяющая поля, которые ожидает HTML-шаблон.
+
+        Параметры:
+            id (int): идентификатор продажи.
+            quantity (int): количество единиц товара.
+            price (float): цена одной единицы.
+
+        Возвращает:
+            None: конструктор только заполняет атрибуты экземпляра.
+        """
         def __init__(self, id, quantity, price):
             self.id = id
             self.product = TestProduct()
@@ -199,7 +286,8 @@ def test_sales_with_data():
             self.sale_date = "2026-02-19"
             self.customer = TestCustomer()
 
-    # Создаем тестовые данные
+    # [БЛОК: генерация тестовых данных]
+    # Список выбран как упорядоченная коллекция, которую удобно итерировать в шаблоне.
     test_sales = [
         TestSale(1, 5, 100.50),
         TestSale(2, 2, 250.00),
@@ -211,17 +299,40 @@ def test_sales_with_data():
 
 @app.route('/test-transfers-with-data')
 def test_transfers_with_data():
-    """Тест с данными перемещений"""
+    """
+    Проверяет шаблон перемещений с тестовыми записями разных статусов.
+
+    Возвращает:
+        Response: HTML-таблица, где видна работа цветовой маркировки статусов.
+    """
 
     class TestProduct:
+        """Упрощённая тестовая сущность товара для отображения в шаблоне."""
         def __init__(self):
+            """Инициализирует товар с фиксированным названием."""
             self.name = "Тестовый продукт"
 
     class TestLocation:
+        """
+        Тестовая сущность локации (аптеки/склада).
+
+        Параметры:
+            name (str): человекочитаемое имя локации.
+        """
         def __init__(self, name):
             self.name = name
 
     class TestTransfer:
+        """
+        Тестовая модель перемещения между локациями.
+
+        Параметры:
+            id (int): идентификатор перемещения.
+            quantity (int): количество единиц.
+            status (str): один из ожидаемых статусов (`completed`, `pending`, `cancelled`).
+            from_loc (str): название исходной локации.
+            to_loc (str): название целевой локации.
+        """
         def __init__(self, id, quantity, status, from_loc, to_loc):
             self.id = id
             self.product = TestProduct()
@@ -231,7 +342,8 @@ def test_transfers_with_data():
             self.transfer_date = "2026-02-19"
             self.status = status
 
-    # Создаем тестовые данные
+    # [БЛОК: тестовые сценарии статусов]
+    # Подбираем три разных статуса, чтобы проверить все ветки if/elif в шаблоне.
     test_transfers = [
         TestTransfer(1, 10, "completed", "Аптека №1", "Аптека №2"),
         TestTransfer(2, 5, "pending", "Аптека №2", "Аптека №3"),
@@ -242,6 +354,9 @@ def test_transfers_with_data():
 
 
 if __name__ == '__main__':
+    # [БЛОК: ручной запуск тестового сервера]
+    # debug=True выбран для учебного режима (автоперезагрузка, подробный traceback).
+    # Для production обычно используют WSGI-сервер (gunicorn/uwsgi/waitress) и debug=False.
     print("\n" + "=" * 60)
     print("🚀 ТЕСТОВЫЙ СЕРВЕР ЗАПУЩЕН")
     print("📌 Адрес: http://127.0.0.1:5001")

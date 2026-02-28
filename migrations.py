@@ -1,4 +1,13 @@
-# migrations.py
+"""
+Файл: migrations.py
+Назначение: Исторический скрипт миграции данных к новой структуре производителей и категорий.
+Роль в проекте: одноразовый data-migration для преобразования старых полей.
+
+Примечание:
+- Скрипт отражает промежуточный этап развития схемы.
+- Используется как обучающий пример переноса данных между структурами.
+"""
+
 from app import create_app, db
 from app.models import Product, Category, Recept, Manufacturer, ProductCategory
 
@@ -12,6 +21,8 @@ with app.app_context():
     products = Product.query.all()
     manufacturer_names = set()
 
+    # [БЛОК: сбор уникальных названий производителей]
+    # set выбран, потому что автоматически удаляет дубликаты (операция добавления в среднем O(1)).
     for product in products:
         if product.manufacturer:
             manufacturer_names.add(product.manufacturer.strip())
@@ -27,7 +38,8 @@ with app.app_context():
                 db.session.commit()
             manufacturer_map[name] = manufacturer.id
 
-    # 3. Обновляем товары с новыми manufacturer_id
+    # [БЛОК: сопоставление old->new]
+    # Заполняем внешний ключ manufacturer_id по заранее собранной карте manufacturer_map.
     for product in products:
         if product.manufacturer and product.manufacturer in manufacturer_map:
             product.manufacturer_id = manufacturer_map[product.manufacturer]

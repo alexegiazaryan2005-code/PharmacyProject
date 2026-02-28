@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <!--
+        Шаблон: sales_list.html
+        Назначение: самостоятельная страница списка продаж (без наследования base.html).
+        Почему standalone: возможно использовалась как быстрый изолированный экран.
+        Альтернатива: extends base.html для единых стилей и навигации проекта.
+    -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Список продаж</title>
@@ -87,6 +93,10 @@
             </tr>
         </thead>
         <tbody>
+            {#
+                Цикл по продажам:
+                блок else в Jinja выполняется при пустом списке `sales`.
+            #}
             {% for sale in sales %}
             <tr>
                 <td>{{ sale.id }}</td>

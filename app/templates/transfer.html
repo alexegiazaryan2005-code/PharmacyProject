@@ -1,4 +1,10 @@
 {% extends "base.html" %}
+{#
+    Шаблон: transfer.html
+    Назначение: форма перемещения товара между аптеками.
+    Критичный контроль: количество проверяется клиентским скриптом против доступного остатка,
+    но финальная проверка всё равно должна оставаться на backend.
+#}
 
 {% block title %}Перемещение товаров{% endblock %}
 
@@ -73,6 +79,8 @@
 </div>
 
 <script>
+// [JS-БЛОК: проверка остатков аптеки-источника]
+// Алгоритм: выбираем товар + аптеку -> запрашиваем остаток по API -> валидируем ввод.
 function checkSourceStock() {
     const productId = document.getElementById('product_id').value;
     const fromPharmacyId = document.getElementById('from_pharmacy_id').value;
