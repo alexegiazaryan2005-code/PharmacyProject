@@ -112,6 +112,7 @@ class Product(db.Model):
     barcode = db.Column(db.String(50), unique=True)
     manufacturer_id = db.Column(db.Integer, db.ForeignKey('manufacturers.id'))
     recept_id = db.Column(db.Integer, db.ForeignKey('recepts.id'))
+    # минимальный остаток для товара
     min_stock = db.Column(db.Integer, default=5)
 
     manufacturer = relationship("Manufacturer", back_populates="products")
